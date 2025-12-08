@@ -3,18 +3,24 @@ import pandas as pd
 import numpy as np
 import requests
 import logging
+import os  # <--- YENİ EKLENDİ
 from datetime import datetime, date
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import warnings
 
 warnings.filterwarnings('ignore')
 
-# -------------------- AYARLAR --------------------
-TELEGRAM_TOKEN = "YOUR_TELEGRAM_TOKEN" 
-CHAT_ID = "YOUR_CHAT_ID"
+# -------------------- AYARLAR (GÜNCELLENDİ) --------------------
+# Artık şifreleri GitHub Secrets'tan okuyacak
+TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
+CHAT_ID = os.environ.get("CHAT_ID")
+
+# Eğer Secrets okunamazsa hata vermemesi için kontrol (Opsiyonel ama iyi olur)
+if not TELEGRAM_TOKEN or not CHAT_ID:
+    print("⚠️ UYARI: Token veya ID bulunamadı! Lütfen GitHub Secrets ayarlarını kontrol et.")
 
 # Trading Ayarları
-PORTFOLIO_SIZE = 50_000
+PORTFOLIO_SIZE = 1_000
 RISK_PER_TRADE = 0.01
 MAX_POSITIONS = 3        
 SUPER_TREND_PERIOD = 10
