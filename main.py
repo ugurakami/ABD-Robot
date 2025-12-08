@@ -26,21 +26,50 @@ MAX_PULLBACK_ATR = 2.0
 RSI_MAX_THRESHOLD = 70
 
 # -------------------- VERİ SETİ --------------------
+# -------------------- GÜNCELLENMİŞ VERİ SETİ --------------------
+
+# 1. Sektör Listesine "Tahvil" ve "Emtia"yı da ekliyoruz
 SECTOR_ETFS = {
-    'XLK': 'Teknoloji', 'XLF': 'Finans', 'XLV': 'Sağlık', 'XLE': 'Enerji',
-    'XLY': 'Tüketim (Lüks)', 'XLP': 'Tüketim (Temel)', 'XLI': 'Sanayi',
-    'XLC': 'İletişim', 'XLB': 'Hammadde', 'XLRE': 'Gayrimenkul', 'XLU': 'Altyapı'
+    # Klasik Sektörler
+    'XLK': 'Teknoloji',
+    'XLF': 'Finans',
+    'XLV': 'Sağlık',
+    'XLE': 'Enerji',
+    'XLY': 'Tüketim (Lüks)',
+    'XLP': 'Tüketim (Temel)',
+    'XLI': 'Sanayi',
+    'XLC': 'İletişim',
+    'XLB': 'Hammadde',
+    'XLRE': 'Gayrimenkul',
+    'XLU': 'Altyapı',
+    
+    # --- YENİ EKLENEN SAVUNMA HATLARI ---
+    'TLT': 'ABD Tahvil (20+ Yıl)',  # Uzun vadeli tahvil
+    'SHY': 'ABD Tahvil (Kısa Vade)', # Kısa vadeli tahvil (Nakit benzeri)
+    'GLD': 'Altın',                  # Altın ETF
+    'SPY': 'Genel Borsa (S&P 500)'   # Borsa Endeksinin kendisi
 }
 
+# 2. Hisseler Haritasına bu ETF'lerin kendisini de ekliyoruz
+# Mantık: TLT hissesi, 'ABD Tahvil' sektöründedir.
 STOCK_SECTOR_MAP = {
-    'AAPL': 'XLK', 'MSFT': 'XLK', 'NVDA': 'XLK', 'ADBE': 'XLK', 'ORCL': 'XLK',
-    'GOOGL': 'XLC', 'META': 'XLC', 'NFLX': 'XLC', 'T': 'XLC', 'VZ': 'XLC',
-    'AMZN': 'XLY', 'TSLA': 'XLY', 'MCD': 'XLY', 'NKE': 'XLY',
-    'JPM': 'XLF', 'V': 'XLF', 'MA': 'XLF', 'BAC': 'XLF', 'WFC': 'XLF', 'GS': 'XLF',
-    'JNJ': 'XLV', 'UNH': 'XLV', 'PFE': 'XLV', 'LLY': 'XLV', 'ABBV': 'XLV',
-    'XOM': 'XLE', 'CVX': 'XLE', 'COP': 'XLE',
-    'CAT': 'XLI', 'BA': 'XLI', 'HON': 'XLI', 'GE': 'XLI',
-    'PG': 'XLP', 'KO': 'XLP', 'PEP': 'XLP', 'WMT': 'XLP', 'COST': 'XLP'
+    # --- MEVCUT HİSSELER ---
+    'AAPL': 'XLK', 'MSFT': 'XLK', 'NVDA': 'XLK', 'ADBE': 'XLK',
+    'GOOGL': 'XLC', 'META': 'XLC', 'NFLX': 'XLC',
+    'AMZN': 'XLY', 'TSLA': 'XLY', 'MCD': 'XLY',
+    'JPM': 'XLF', 'V': 'XLF', 'MA': 'XLF',
+    'JNJ': 'XLV', 'UNH': 'XLV', 'LLY': 'XLV',
+    'XOM': 'XLE', 'CVX': 'XLE',
+    'CAT': 'XLI', 'BA': 'XLI',
+    'PG': 'XLP', 'KO': 'XLP', 'WMT': 'XLP',
+    
+    # --- YENİ EKLENEN ETF'LERİN ALIM SATIMI ---
+    # Botun direkt bu ETF'leri de alıp satabilmesi için buraya ekliyoruz.
+    'TLT': 'TLT',  # Tahvilin kendisini al
+    'GLD': 'GLD',  # Altının kendisini al
+    'SPY': 'SPY',  # Endeksin kendisini al
+    'QQQ': 'XLK',  # Nasdaq'ı Teknoloji kategorisine koyabiliriz
+    'IWM': 'SPY'   # Küçük şirketleri Genel Borsa kategorisine koyabiliriz
 }
 
 # -------------------- YARDIMCI FONKSİYONLAR --------------------
