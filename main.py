@@ -7,8 +7,6 @@ from datetime import datetime, date
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import warnings
 
-# ta kütüphanesi çıkarıldı, formülleri aşağıda manuel yazdık.
-
 warnings.filterwarnings('ignore')
 
 # -------------------- AYARLAR --------------------
@@ -73,24 +71,29 @@ def calculate_supertrend(df, period=10, multiplier=3):
     basic_upperband = hl2 + (multiplier * atr)
     basic_lowerband = hl2 - (multiplier * atr)
     
-    # Hesaplama döngüsü (Pandas ile vectorize etmek zordur, döngü daha güvenli)
-    final_upperband = [0.0] * len(df)
-    final_lowerband = [0.0] * len(df)
-    supertrend = [0.0] * len(df)
-    trend_direction = [1] * len(df) # 1: Up, -1: Down
-    
+    # Döngü öncesi verileri Numpy array'e çeviriyoruz (Hız ve Hata önlemek için)
+    # Bu kısım 'The truth value of a Series is ambiguous' hatasını çözer.
+    high = df['High'].values
+    low = df['Low'].values
     close = df['Close'].values
+    bub = basic_upperband.values
+    blb = basic_lowerband.values
+    
+    final_upperband = np.zeros(len(df))
+    final_lowerband = np.zeros(len(df))
+    supertrend = np.zeros(len(df))
+    trend_direction = np.ones(len(df)) # 1: Up, -1: Down
     
     for i in range(1, len(df)):
         # Upper Band Logic
-        if basic_upperband.iloc[i] < final_upperband[i-1] or close[i-1] > final_upperband[i-1]:
-            final_upperband[i] = basic_upperband.iloc[i]
+        if bub[i] < final_upperband[i-1] or close[i-1] > final_upperband[i-1]:
+            final_upperband[i] = bub[i]
         else:
             final_upperband[i] = final_upperband[i-1]
             
         # Lower Band Logic
-        if basic_lowerband.iloc[i] > final_lowerband[i-1] or close[i-1] < final_lowerband[i-1]:
-            final_lowerband[i] = basic_lowerband.iloc[i]
+        if blb[i] > final_lowerband[i-1] or close[i-1] < final_lowerband[i-1]:
+            final_lowerband[i] = blb[i]
         else:
             final_lowerband[i] = final_lowerband[i-1]
             
@@ -124,13 +127,14 @@ def analyze_market_regime():
     try:
         spy = yf.download('SPY', period='2y', interval='1wk', progress=False)
         
-        # Basit Hareketli Ortalamalar (Pandas ile)
-        spy['SMA_50'] = spy['Close'].rolling(window=10).mean() # Haftalıkta 10 bar ~ 50 Gün
+        # Basit Hareketli Ortalamalar
+        spy['SMA_50'] = spy['Close'].rolling(window=10).mean() # ~50 Gün
         spy['SMA_200'] = spy['Close'].rolling(window=40).mean() 
         
-        curr_price = spy['Close'].iloc[-1]
-        curr_sma50 = spy['SMA_50'].iloc[-1]
-        curr_sma200 = spy['SMA_200'].iloc[-1]
+        # HATA DÜZELTME: Değerleri float() içine alarak saf sayıya çeviriyoruz
+        curr_price = float(spy['Close'].iloc[-1])
+        curr_sma50 = float(spy['SMA_50'].iloc[-1])
+        curr_sma200 = float(spy['SMA_200'].iloc[-1])
         
         if curr_price > curr_sma50 and curr_sma50 > curr_sma200:
             return "AGGRESSIVE", "🐂 GÜÇLÜ BOĞA"
@@ -143,7 +147,8 @@ def analyze_market_regime():
             
     except Exception as e:
         logging.error(f"Piyasa analizi hatası: {e}")
-        return "CAUTIOUS", "Hata Oluştu"
+        # Hata durumunda güvenli modda devam et
+        return "CAUTIOUS", "Hata Oluştu (Güvenli Mod)"
 
 # -------------------- 2. MODÜL: SEKTÖR ANALİZİ --------------------
 def analyze_top_sectors():
@@ -154,13 +159,22 @@ def analyze_top_sectors():
         try:
             df = yf.download(ticker, period='3mo', interval='1d', progress=False)
             if len(df) > 0:
-                roi = ((df['Close'].iloc[-1] - df['Close'].iloc[0]) / df['Close'].iloc[0]) * 100
+                # HATA DÜZELTME: float() kullanımı
+                start_price = float(df['Close'].iloc[0])
+                end_price = float(df['Close'].iloc[-1])
+                roi = ((end_price - start_price) / start_price) * 100
+                
                 sector_performance.append({'etf': ticker, 'name': name, 'roi': roi})
         except: continue
             
+    # float'a çevirdiğimiz için artık sıralama hatası vermez
     sector_performance.sort(key=lambda x: x['roi'], reverse=True)
+    
     top_3_sectors = [s['etf'] for s in sector_performance[:3]]
-    print(f"   🔥 Lider Sektörler: {[s['name'] for s in sector_performance[:3]]}")
+    # Liste boşsa hata vermemesi için kontrol
+    top_names = [s['name'] for s in sector_performance[:3]] if sector_performance else []
+    
+    print(f"   🔥 Lider Sektörler: {top_names}")
     return top_3_sectors
 
 # -------------------- 3. MODÜL: HİSSE ANALİZİ --------------------
@@ -169,27 +183,32 @@ def analyze_single_stock(ticker, market_risk_mode):
         df = yf.download(ticker, period="2y", interval="1wk", progress=False)
         if df is None or len(df) < 50: return None
         
-        # Manuel yazdığımız fonksiyonları çağırıyoruz
+        # Manuel indikatörler
         df = calculate_supertrend(df, period=SUPER_TREND_PERIOD, multiplier=SUPER_TREND_MULT)
         df['RSI'] = calculate_rsi(df['Close'])
         
-        current = df.iloc[-1]
+        # Son satırı alırken de güvenli işlem
+        current_close = float(df['Close'].iloc[-1])
+        current_st = float(df['SuperTrend'].iloc[-1])
+        current_dir = int(df['SuperTrend_Direction'].iloc[-1])
+        current_rsi = float(df['RSI'].iloc[-1])
+        current_atr = float(df['ATR'].iloc[-1])
         
         # --- FİLTRELER ---
-        if current['SuperTrend_Direction'] != 1: return None
-        if current['Close'] <= current['SuperTrend']: return None
-        if current['RSI'] > RSI_MAX_THRESHOLD: return None
+        if current_dir != 1: return None
+        if current_close <= current_st: return None
+        if current_rsi > RSI_MAX_THRESHOLD: return None
         
         # Pullback Kontrolü
-        pullback_dist = current['Close'] - current['SuperTrend']
-        if pullback_dist > (MAX_PULLBACK_ATR * current['ATR']): return None
+        pullback_dist = current_close - current_st
+        if pullback_dist > (MAX_PULLBACK_ATR * current_atr): return None
 
         # --- RİSK YÖNETİMİ ---
         adjusted_risk = RISK_PER_TRADE / 2 if market_risk_mode == "CAUTIOUS" else RISK_PER_TRADE
         if market_risk_mode == "DEFENSIVE": return None
             
-        stop_price = current['SuperTrend']
-        risk_per_share = current['Close'] - stop_price
+        stop_price = current_st
+        risk_per_share = current_close - stop_price
         
         if risk_per_share <= 0: return None
         
@@ -199,14 +218,15 @@ def analyze_single_stock(ticker, market_risk_mode):
         return {
             'ticker': ticker,
             'sector': STOCK_SECTOR_MAP.get(ticker, 'Bilinmiyor'),
-            'price': current['Close'],
+            'price': current_close,
             'stop': stop_price,
-            'rsi': current['RSI'],
+            'rsi': current_rsi,
             'shares': shares,
-            'position_value': shares * current['Close']
+            'position_value': shares * current_close
         }
         
     except Exception as e:
+        # logging.error(f"{ticker} hata: {e}") # Debug için açılabilir
         return None
 
 # -------------------- TELEGRAM --------------------
@@ -217,15 +237,22 @@ def send_telegram_message(message):
 
 # -------------------- ANA ÇALIŞTIRICI --------------------
 def run_full_system():
-    print("🚀 SİSTEM BAŞLATILIYOR (No-TA Library Version)...\n" + "="*50)
+    print("🚀 SİSTEM BAŞLATILIYOR (No-TA Library Version v2)...\n" + "="*50)
     
     risk_mode, market_status = analyze_market_regime()
     if risk_mode == "DEFENSIVE":
-        send_telegram_message(f"🛑 **SİSTEM DURDURULDU**\n{market_status}")
+        send_telegram_message(f"🛑 **SİSTEM DURDURULDU**\n{market_status}\nPiyasa koşulları riskli.")
         return
 
     top_sectors = analyze_top_sectors()
+    
+    # Eğer hiç sektör verisi çekilemediyse (API hatası vb.), işlemi durdur
+    if not top_sectors:
+        print("⚠️ Sektör verisi alınamadı, program sonlanıyor.")
+        return
+
     target_tickers = [t for t, s in STOCK_SECTOR_MAP.items() if s in top_sectors]
+    print(f"🎯 Hedef Hisseler: {len(target_tickers)} adet")
     
     candidates = []
     with ThreadPoolExecutor(max_workers=5) as executor:
