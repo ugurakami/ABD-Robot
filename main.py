@@ -4,7 +4,6 @@ import numpy as np
 import requests
 from datetime import datetime, date
 import logging
-from import yfinance as yf
 import pandas as pd
 import numpy as np
 import requests # Yeni eklenen kütüphane
